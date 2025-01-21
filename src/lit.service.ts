@@ -28,7 +28,7 @@ export class LitService {
         );
 
         this.client = new LitNodeClient({
-        litNetwork: LIT_NETWORK.DatilDev,  // Use the mainnet network
+        litNetwork: LIT_NETWORK.Datil,  // Use the mainnet network
         debug: false,
         storageProvider: {
             provider: new LocalStorage("./lit_storage.db"),
@@ -45,50 +45,61 @@ export class LitService {
 
         await this.client.connect();
         await this.contract.connect();
-
     }
 
-    async _authSig() {
+    // async _authSig() {
 
-        // succesfully used with pkp generation
+    //     // succesfully used with pkp generation
 
-        const address = ethers.utils.getAddress(await this.signer.getAddress());
-        const nonce = Math.floor(Date.now() / 1000).toString();
+    //     const address = ethers.utils.getAddress(await this.signer.getAddress());
+    //     const nonce = Math.floor(Date.now() / 1000).toString();
 
-        const domain = 'localhost';
-        const origin = 'http://localhost/';
-        const statement = 'Sign this message to generate an auth signature for Lit Protocol';
+    //     const domain = 'localhost';
+    //     const origin = 'http://localhost/';
+    //     const statement = 'Sign this message to generate an auth signature for Lit Protocol';
 
-        const expirationTime = new Date(
-            Date.now() + 1000 * 60 * 60 * 24 // 1 day
-        ).toISOString();
+    //     const expirationTime = new Date(
+    //         Date.now() + 1000 * 60 * 60 * 24 // 1 day
+    //     ).toISOString();
 
-        const issuedAt = new Date().toISOString();
+    //     const issuedAt = new Date().toISOString();
 
-        const siweMessage = new siwe.SiweMessage({
-            domain,
-            address,
-            statement,
-            uri: origin,
-            version: '1',
-            chainId: 1,
-            nonce,
-            issuedAt,
-            expirationTime,
-        });
+    //     const siweMessage = new siwe.SiweMessage({
+    //         domain,
+    //         address,
+    //         statement,
+    //         uri: origin,
+    //         version: '1',
+    //         chainId: 1,
+    //         nonce,
+    //         issuedAt,
+    //         expirationTime,
+    //     });
 
-        const messageToSign = siweMessage.prepareMessage();
-        const signature = await this.signer.signMessage(messageToSign);
+    //     const messageToSign = siweMessage.prepareMessage();
+    //     const signature = await this.signer.signMessage(messageToSign);
             
-        return {
-            sig: signature,
-            derivedVia: 'web3.eth.personal.sign',
-            signedMessage: messageToSign,
-            address: address.toLowerCase(),
-        };
-    }
+    //     return {
+    //         sig: signature,
+    //         derivedVia: 'web3.eth.personal.sign',
+    //         signedMessage: messageToSign,
+    //         address: address.toLowerCase(),
+    //     };
+    // }
 
     async __authSig(resourceAbilityRequests: any[]) {
+
+        console.log(resourceAbilityRequests);
+
+        // [
+        //     {
+        //       resource: LitActionResource {
+        //         resource: '*',
+        //         resourcePrefix: 'lit-litaction'
+        //       },
+        //       ability: 'lit-action-execution'
+        //     }
+        //   ]
 
         const origin = 'http://localhost/';
         const expirationTime = new Date(
@@ -101,10 +112,7 @@ export class LitService {
             resources: resourceAbilityRequests,
             walletAddress: await this.signer.getAddress(),
             nonce: await this.client.getLatestBlockhash(),
-            litNodeClient: this.client,
-            domain: "localhost",
-            version: "1",
-            statement: "Sign this message to access Lit Protocol"
+            litNodeClient: this.client
         });
       
         return await generateAuthSig({
@@ -115,23 +123,15 @@ export class LitService {
 
     async sessionSignature(litActionCode: string, resourceAbilityRequests: any[]) { 
         
-        // First, get the IPFS CID for the action code
-        const ipfsCid = await this.client.getIpfsCid(litActionCode);
-        
-        // Update the resource with the IPFS CID
-        const updatedRequests = resourceAbilityRequests.map(req => ({
-            ...req,
-            resource: new LitActionResource(ipfsCid)
-        }));
 
         const authNeededCallback = async (params: any) => {
-            return this.__authSig(updatedRequests);
+            return this.__authSig(resourceAbilityRequests);
         };
 
         this.sessionSigs = await this.client.getSessionSigs({
             chain: "ethereum",
-            expiration: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(), // 24 hours
-            resourceAbilityRequests: updatedRequests,
+            expiration: new Date(Date.now() + 1000 * 60 * 10).toISOString(), // 24 hours
+            resourceAbilityRequests,
             authNeededCallback,
         });
 
@@ -139,18 +139,11 @@ export class LitService {
     }
 
     async executeJS(litActionCode: string) { 
-        // Get IPFS CID for the action code
-        const ipfsCid = await this.client.getIpfsCid(litActionCode);
+    
 
         const response = await this.client.executeJs({
             sessionSigs: this.sessionSigs,
             code: litActionCode,
-            ipfsId: ipfsCid,
-            authSig: await this.__authSig([{
-                resource: new LitActionResource(ipfsCid),
-                ability: LIT_ABILITY.LitActionExecution,
-                scope: AUTH_METHOD_SCOPE.SignAnything
-            }]),
             jsParams: {
                 magicNumber: 43,
             }

@@ -19,6 +19,8 @@ const lit = new LitService(process.env.PRIVATE_KEY);
 
 export const run = async () => {
 
+  await lit.init();
+
   const resourceAbilitiesForSigning = [
     {
         resource: new LitActionResource("*"),
@@ -27,16 +29,12 @@ export const run = async () => {
     },
 ];
 
-  await lit.init();
-
-  // Get IPFS CID for the action code
-  const ipfsCid = await lit.client.getIpfsCid(litActionCode);
 
   const resourceAbilitiesForActions = [
     {
-      resource: new LitActionResource(ipfsCid),
+      resource: new LitActionResource("*"),
       ability: LIT_ABILITY.LitActionExecution,
-      scope: AUTH_METHOD_SCOPE.SignAnything
+      // scope: AUTH_METHOD_SCOPE.SignAnything
     }
   ];
 
@@ -46,6 +44,8 @@ export const run = async () => {
   // Execute the Lit Action
   const response = await lit.executeJS(litActionCode);
   console.log("Lit Action Response:", response);
+
+  // 'There was an error getting the signing shares from the nodes. Response from the nodes: {"success":false,"error":{"errorKind":"Validation","errorCode":"NodeSIWECapabilityInvalid","status":400,"message":"Invalid Capability object in SIWE resource ReCap","correlationId":"lit_a15693461a291","details":["validation error: Resource id not found in auth_sig capabilities: validation error: Could not find valid capability.","Resource id not found in auth_sig capabilities"]}}',
 
   // pkp: {
   //   tokenId: '0xdc0527f7c635c5c8d6db92860cdc2187203ee8b649468e29f2430b74435dd5c1',
