@@ -1,0 +1,4 @@
+node_modules
+dist
+lit_storage.db
+src/.env
